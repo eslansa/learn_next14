@@ -1,4 +1,3 @@
-const { db } = require('@vercel/postgres');
 const { Pool } = require('pg');
 const {
   invoices,

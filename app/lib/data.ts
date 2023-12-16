@@ -1,4 +1,5 @@
-import { sql } from '@vercel/postgres';
+require('dotenv').config();
+const { Pool } = require('pg');
 import {
   CustomerField,
   CustomersTableType,
@@ -10,31 +11,24 @@ import {
 } from './definitions';
 import { formatCurrency } from './utils';
 
+const pool = new Pool({
+  connectionString: process.env.POSTGRES_URL,
+});
+
 export async function fetchRevenue() {
-  // Add noStore() here prevent the response from being cached.
-  // This is equivalent to in fetch(..., {cache: 'no-store'}).
-
   try {
-    // Artificially delay a response for demo purposes.
-    // Don't do this in production :)
-
-    // console.log('Fetching revenue data...');
-    // await new Promise((resolve) => setTimeout(resolve, 3000));
-
-    const data = await sql<Revenue>`SELECT * FROM revenue`;
-
-    // console.log('Data fetch completed after 3 seconds.');
-
+    const data = await pool.query('SELECT * FROM revenue');
     return data.rows;
   } catch (error) {
     console.error('Database Error:', error);
-    throw new Error('Failed to fetch revenue data.');
+    throw error;
   }
 }
 
+
 export async function fetchLatestInvoices() {
   try {
-    const data = await sql<LatestInvoiceRaw>`
+    const data = await pool.query<LatestInvoiceRaw>`
       SELECT invoices.amount, customers.name, customers.image_url, customers.email, invoices.id
       FROM invoices
       JOIN customers ON invoices.customer_id = customers.id
@@ -57,9 +51,9 @@ export async function fetchCardData() {
     // You can probably combine these into a single SQL query
     // However, we are intentionally splitting them to demonstrate
     // how to initialize multiple queries in parallel with JS.
-    const invoiceCountPromise = sql`SELECT COUNT(*) FROM invoices`;
-    const customerCountPromise = sql`SELECT COUNT(*) FROM customers`;
-    const invoiceStatusPromise = sql`SELECT
+    const invoiceCountPromise = pool.query`SELECT COUNT(*) FROM invoices`;
+    const customerCountPromise = pool.query`SELECT COUNT(*) FROM customers`;
+    const invoiceStatusPromise = pool.query`SELECT
          SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) AS "paid",
          SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) AS "pending"
          FROM invoices`;
@@ -95,7 +89,7 @@ export async function fetchFilteredInvoices(
   const offset = (currentPage - 1) * ITEMS_PER_PAGE;
 
   try {
-    const invoices = await sql<InvoicesTable>`
+    const invoices = await Pool<InvoicesTable>`
       SELECT
         invoices.id,
         invoices.amount,
@@ -125,7 +119,7 @@ export async function fetchFilteredInvoices(
 
 export async function fetchInvoicesPages(query: string) {
   try {
-    const count = await sql`SELECT COUNT(*)
+    const count = await pool.query`SELECT COUNT(*)
     FROM invoices
     JOIN customers ON invoices.customer_id = customers.id
     WHERE
@@ -146,7 +140,7 @@ export async function fetchInvoicesPages(query: string) {
 
 export async function fetchInvoiceById(id: string) {
   try {
-    const data = await sql<InvoiceForm>`
+    const data = await pool.query<InvoiceForm>`
       SELECT
         invoices.id,
         invoices.customer_id,
@@ -171,7 +165,7 @@ export async function fetchInvoiceById(id: string) {
 
 export async function fetchCustomers() {
   try {
-    const data = await sql<CustomerField>`
+    const data = await pool.query<CustomerField>`
       SELECT
         id,
         name
@@ -189,7 +183,7 @@ export async function fetchCustomers() {
 
 export async function fetchFilteredCustomers(query: string) {
   try {
-    const data = await sql<CustomersTableType>`
+    const data = await pool.query<CustomersTableType>`
 		SELECT
 		  customers.id,
 		  customers.name,
@@ -222,7 +216,7 @@ export async function fetchFilteredCustomers(query: string) {
 
 export async function getUser(email: string) {
   try {
-    const user = await sql`SELECT * FROM users WHERE email=${email}`;
+    const user = await pool.query`SELECT * FROM users WHERE email=${email}`;
     return user.rows[0] as User;
   } catch (error) {
     console.error('Failed to fetch user:', error);

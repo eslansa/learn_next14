@@ -152,6 +152,13 @@ export async function fetchInvoicesPages(query: string) {
   }
 }
 
+interface Invoice {
+  id: number;
+  amount: number;
+  // Add other properties as needed
+}
+
+
 export async function fetchInvoiceById(id: string) {
   try {
     const data = await pool.query<InvoiceForm>`
@@ -164,7 +171,7 @@ export async function fetchInvoiceById(id: string) {
       WHERE invoices.id = ${id};
     `;
 
-    const invoice = data.rows.map((invoice) => ({
+    const invoice = data.rows.map((invoice: Invoice) => ({
       ...invoice,
       // Convert amount from cents to dollars
       amount: invoice.amount / 100,
@@ -195,6 +202,13 @@ export async function fetchCustomers() {
   }
 }
 
+interface Customer {
+  id: number;
+  name: string;
+  total_pending: number;
+  total_paid: number
+}
+
 export async function fetchFilteredCustomers(query: string) {
   try {
     const data = await pool.query<CustomersTableType>`
@@ -215,7 +229,7 @@ export async function fetchFilteredCustomers(query: string) {
 		ORDER BY customers.name ASC
 	  `;
 
-    const customers = data.rows.map((customer) => ({
+    const customers = data.rows.map((customer: Customer) => ({
       ...customer,
       total_pending: formatCurrency(customer.total_pending),
       total_paid: formatCurrency(customer.total_paid),

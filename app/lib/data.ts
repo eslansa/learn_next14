@@ -1,4 +1,5 @@
 require('dotenv').config();
+import { Client } from 'pg';
 const { Pool } = require('pg');
 import {
   CustomerField,
@@ -10,6 +11,7 @@ import {
   Revenue,
 } from './definitions';
 import { formatCurrency } from './utils';
+import { setTimeout } from 'timers';
 
 const pool = new Pool({
   connectionString: process.env.POSTGRES_URL,
@@ -17,6 +19,7 @@ const pool = new Pool({
 
 export async function fetchRevenue() {
   try {
+    await new Promise((resolve) => setTimeout(resolve, 3000))
     const data = await pool.query('SELECT * FROM revenue');
     return data.rows;
   } catch (error) {
@@ -27,22 +30,33 @@ export async function fetchRevenue() {
 
 
 export async function fetchLatestInvoices() {
+  const client = new Client({
+    connectionString: process.env.POSTGRES_URL,
+  });
+
   try {
-    const data = await pool.query<LatestInvoiceRaw>`
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    
+    await client.connect();
+
+    const res = await client.query(`
       SELECT invoices.amount, customers.name, customers.image_url, customers.email, invoices.id
       FROM invoices
       JOIN customers ON invoices.customer_id = customers.id
       ORDER BY invoices.date DESC
-      LIMIT 5`;
+      LIMIT 5`);
 
-    const latestInvoices = data.rows.map((invoice) => ({
+    const latestInvoices = res.rows.map((invoice) => ({
       ...invoice,
       amount: formatCurrency(invoice.amount),
     }));
+
     return latestInvoices;
   } catch (error) {
     console.error('Database Error:', error);
-    throw new Error('Failed to fetch the latest invoices.');
+    throw error;
+  } finally {
+    await client.end();
   }
 }
 
